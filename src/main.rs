@@ -9,28 +9,34 @@ const SCREEN_HEIGHT : u16 = 720;
 const NUM_PIXELS : usize = SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize * 4;
 
 struct GameState {
-    pos_x: f32,
+    pos: na::Vector2<f32>,
 }
 
 impl GameState {
     fn new() -> GameResult<GameState> {
-        let s = GameState { pos_x: 0.0 };
+        let s = GameState { pos: na::Vector2::new(1.0, 0.0) };
         Ok(s)
     }
 }
 
 impl event::EventHandler for GameState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
-        self.pos_x = self.pos_x % 800.0 + 1.0;
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let sky_blue : [u8; 4] = [135, 206, 235, 255];
+        let grey : [u8; 4] = [128, 128, 128, 255];
         let mut frame : Vec<u8> = sky_blue.iter().cloned().cycle().take(NUM_PIXELS).collect();
 
+        let mut draw = |x: usize, y: usize, color: [u8; 4]| {
+            let index = (y * SCREEN_WIDTH as usize + x) * 4;
+            frame[index..(4 + index)].clone_from_slice(&color);
+        };
+
+        draw(SCREEN_WIDTH as usize / 2, SCREEN_HEIGHT as usize / 2, grey);
+
         let image = graphics::Image::from_rgba8(ctx, SCREEN_WIDTH, SCREEN_HEIGHT, frame.as_slice())?;
-        
         graphics::draw(ctx, &image, (na::Point2::new(0.0, 0.0),))?;
 
         graphics::present(ctx)?;
