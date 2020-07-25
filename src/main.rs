@@ -1,12 +1,13 @@
 use ggez;
 use ggez::event;
 use ggez::graphics;
+use ggez::input::keyboard;
 use ggez::nalgebra as na;
 use ggez::{Context, GameResult};
 
-const SCREEN_WIDTH : u16 = 1280;
-const SCREEN_HEIGHT : u16 = 720;
-const NUM_PIXELS : usize = SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize * 4;
+const SCREEN_WIDTH : usize = 720;
+const SCREEN_HEIGHT : usize = 720;
+const NUM_PIXELS : usize = SCREEN_HEIGHT * SCREEN_WIDTH * 4;
 
 const MAP_WIDTH : usize = 24;
 const MAP_HEIGHT : usize = 24;
@@ -47,8 +48,8 @@ impl GameState {
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
         let s = GameState { 
-            pos: na::Point2::new(20.0, 12.0),
-            dir: 0.0,
+            pos: na::Point2::new(15.0, 12.0),
+            dir: 0.25,
             map,
         };
         Ok(s)
@@ -56,7 +57,23 @@ impl GameState {
 }
 
 impl event::EventHandler for GameState {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        if keyboard::is_key_pressed(ctx, event::KeyCode::W) {
+            self.pos += na::Vector2::new(self.dir.cos(), self.dir.sin());
+        }
+
+        if keyboard::is_key_pressed(ctx, event::KeyCode::S) {
+            self.pos -= na::Vector2::new(self.dir.cos(), self.dir.sin());
+        }
+
+        if keyboard::is_key_pressed(ctx, event::KeyCode::A) {
+            self.dir += 0.1;
+        }
+
+        if keyboard::is_key_pressed(ctx, event::KeyCode::D) {
+            self.dir -= 0.1;
+        }
+        
         Ok(())
     }
 
@@ -66,7 +83,7 @@ impl event::EventHandler for GameState {
         let mut frame : Vec<u8> = sky_blue.iter().cloned().cycle().take(NUM_PIXELS).collect();
 
         let mut draw = |x: usize, y: usize, color: [u8; 4]| {
-            let index = (y * SCREEN_WIDTH as usize + x) * 4;
+            let index = (y * SCREEN_WIDTH + x) * 4;
             frame[index..(4 + index)].clone_from_slice(&color);
         };
 
@@ -74,10 +91,10 @@ impl event::EventHandler for GameState {
         let view_right = na::Vector2::new((self.dir - 0.1).cos(), (self.dir - 0.1).sin());
 
         for x in 0..SCREEN_WIDTH {
-            let camera_x = x / SCREEN_WIDTH;
-            let ray_dir = na::Vector2::new(view_left.x * (1 - camera_x) as f32, view_left.y * (1 - camera_x) as f32) 
-                + na::Vector2::new(view_right.x * camera_x as f32, view_right.y * camera_x as f32);
-
+            let camera_x = x as f32 / SCREEN_WIDTH as f32;
+            let ray_dir = na::Vector2::new(view_left.x * (1.0 - camera_x), view_left.y * (1.0 - camera_x)) 
+                + na::Vector2::new(view_right.x * camera_x, view_right.y * camera_x);
+                
             let skip = na::Vector2::new(1.0 / ray_dir.x.abs(), 1.0 / ray_dir.y.abs());
 
             let dist_x = if ray_dir.x > 0.0 {
@@ -100,6 +117,7 @@ impl event::EventHandler for GameState {
             let mut traveled = 0.0;
 
             let mut hit = false;
+
             while !hit {
                 if dist.x < dist.y {
                     map.x += dist.x.signum() as isize;
@@ -114,16 +132,20 @@ impl event::EventHandler for GameState {
                     dist.y = skip.y;
                 }
 
-                println!("{}, {:?} {:?}", x, map.x, map.y);
                 if self.map[map.y as usize][map.x as usize] > 0 {
+                    let bottom = SCREEN_HEIGHT / 2 + SCREEN_HEIGHT / traveled as usize;
+                    let top = SCREEN_HEIGHT / 2 - SCREEN_HEIGHT / traveled as usize;
+
+                    for y in top..bottom + 1 {
+                        draw(x, y, grey);
+                    }
+
                     hit = true;
                 }
             }
         }
 
-        draw(SCREEN_WIDTH as usize / 2, SCREEN_HEIGHT as usize / 2, grey);
-
-        let image = graphics::Image::from_rgba8(ctx, SCREEN_WIDTH, SCREEN_HEIGHT, frame.as_slice())?;
+        let image = graphics::Image::from_rgba8(ctx, SCREEN_WIDTH as u16, SCREEN_HEIGHT as u16, frame.as_slice())?;
         graphics::draw(ctx, &image, (na::Point2::new(0.0, 0.0),))?;
 
         graphics::present(ctx)?;
