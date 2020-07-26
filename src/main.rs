@@ -1,17 +1,26 @@
-use ggez;
 use ggez::event;
 use ggez::graphics;
 use ggez::input::keyboard;
+use ggez::timer::delta;
 use ggez::nalgebra as na;
 use ggez::{Context, GameResult};
 
-const SCREEN_WIDTH : usize = 1024;
+const SCREEN_WIDTH : usize = 720;
 const SCREEN_HEIGHT : usize = 720;
 const NUM_PIXELS : usize = SCREEN_HEIGHT * SCREEN_WIDTH * 4;
 
 const MAP_WIDTH : usize = 24;
 const MAP_HEIGHT : usize = 24;
 
+struct Colors;
+
+impl Colors {
+    const SKY_BLUE: [u8; 4] = [135, 206, 235, 255];
+    const GREY: [u8; 4] = [128, 128, 128, 255];
+    const GREEN: [u8; 4] = [0, 255, 0, 255];
+    const RED: [u8; 4] = [255, 0, 0, 255];
+    const BROWN: [u8; 4] = [210, 105, 30, 255];
+}
 
 struct GameState {
     pos: na::Point2<f32>,
@@ -59,11 +68,15 @@ impl GameState {
 impl event::EventHandler for GameState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         if keyboard::is_key_pressed(ctx, event::KeyCode::W) {
-            self.pos += na::Vector2::new(self.dir.cos(), self.dir.sin());
+            let dx = self.dir.cos() * 5.0 * delta(ctx).as_nanos() as f32 / 1.0e9;
+            let dy = self.dir.sin() * 5.0 * delta(ctx).as_nanos() as f32 / 1.0e9;
+            self.pos += na::Vector2::new(dx, dy);
         }
 
         if keyboard::is_key_pressed(ctx, event::KeyCode::S) {
-            self.pos -= na::Vector2::new(self.dir.cos(), self.dir.sin());
+            let dx = self.dir.cos() * 5.0 * delta(ctx).as_nanos() as f32 / 1.0e9;
+            let dy = self.dir.sin() * 5.0 * delta(ctx).as_nanos() as f32 / 1.0e9;
+            self.pos -= na::Vector2::new(dx, dy);
         }
 
         if keyboard::is_key_pressed(ctx, event::KeyCode::A) {
@@ -78,19 +91,15 @@ impl event::EventHandler for GameState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let sky_blue : [u8; 4] = [135, 206, 235, 255];
-        let grey : [u8; 4] = [128, 128, 128, 255];
-        let green : [u8; 4] = [0, 255, 0, 255];
-
-        let mut frame : Vec<u8> = sky_blue.iter().cloned().cycle().take(NUM_PIXELS).collect();
+        let mut frame : Vec<u8> = Colors::SKY_BLUE.iter().cloned().cycle().take(NUM_PIXELS).collect();
 
         let mut draw = |x: usize, y: usize, color: [u8; 4]| {
             let index = (y * SCREEN_WIDTH + x) * 4;
             frame[index..(4 + index)].clone_from_slice(&color);
         };
 
-        let view_left = na::Vector2::new((self.dir + 0.5).cos(), (self.dir + 0.5).sin());
-        let view_right = na::Vector2::new((self.dir - 0.5).cos(), (self.dir - 0.5).sin());
+        let view_left = na::Vector2::new((self.dir + 0.3).cos(), (self.dir + 0.3).sin());
+        let view_right = na::Vector2::new((self.dir - 0.3).cos(), (self.dir - 0.3).sin());
 
         for x in 0..SCREEN_WIDTH {
             let t = x as f32 / SCREEN_WIDTH as f32;
@@ -139,19 +148,24 @@ impl event::EventHandler for GameState {
                 }
 
                 if self.map[map.y as usize][map.x as usize] > 0 {
-                    let mut bottom = SCREEN_HEIGHT / 2 + SCREEN_HEIGHT / traveled as usize;
+                    if x == 1 {
+                        println!("{}", traveled);
+                    }
+                    let mut bottom = SCREEN_HEIGHT / 2 + (SCREEN_HEIGHT as f32 / traveled) as usize;
                     
                     if bottom >= SCREEN_HEIGHT {
                         bottom = SCREEN_HEIGHT - 1;
                     }
 
-                    let top_signed = SCREEN_HEIGHT as isize / 2 - SCREEN_HEIGHT as isize / traveled as isize;
+                    let top_signed = SCREEN_HEIGHT as isize / 2 - (SCREEN_HEIGHT as f32 / traveled) as isize;
 
                     let top = std::cmp::max(top_signed, 0) as usize;
                     
                     let color = match self.map[map.y as usize][map.x as usize] {
-                        4 => green,
-                        _ => grey,
+                        4 => Colors::GREEN,
+                        3 => Colors::RED,
+                        2 => Colors::BROWN,
+                        _ => Colors::GREY,
                     };
 
                     for y in top..bottom + 1 {
